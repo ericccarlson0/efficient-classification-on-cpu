@@ -27,10 +27,10 @@ print("Imported packages.")
 
 # %% Set up directories.
 
-# The directory that is beneath all the rest.
+# The directory that is beneath all the rest. Optional.
 BASE_DIR = None
 
-# Where this project is stored.
+# Where this project is stored. Optional.
 LOCAL_DIR = None
 
 # Where all the images are stored as torch Tensors.
