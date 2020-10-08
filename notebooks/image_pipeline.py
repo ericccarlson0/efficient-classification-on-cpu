@@ -2,6 +2,7 @@
 import configparser
 import os
 import sys
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -200,3 +201,36 @@ for epoch in range(train_model * num_epochs):
         check_classification(model, image_id=curr_id, torch_data_dir=TENSORS_DIR)
 
 print("Model has been created.")
+
+# %% Save model to appropriate directory (optional).
+
+if save_model:
+    state_dict_name = f"{model_type}_time={float(time.time()): .2f}.pt"
+    state_dict_path = os.path.join(LOCAL_DIR, "saved_models", state_dict_name)
+
+    # TODO: There could be pruning or something like that before we save the model.
+    # That would nee to be dealt with...
+    torch.save(model.state_dict(), state_dict_path)
+    print(f"Saved model to {state_dict_path}")
+
+# %% Record results as hparams (optional).
+
+# TODO: Generate accuracy on Val and Test sets when training is over.
+val_acc = 0
+test_acc = 0
+total_acc = 0
+
+if add_hparams:
+    metrics = {"hparam/val_accuracy": val_acc, "hparam/test_accuracy": test_acc, "hparam/total_accuracy": total_acc}
+    writer.add_hparams(hparam_dict=hparams, metric_dict=metrics)
+
+writer.close()
+
+# %% Trace the model (optional).
+
+# TODO: Finish this. And traced model on a fixed input is almost certainly not enough.
+trace_model = False
+
+if trace_model:
+    ex_input = torch.rand((2, 3, 244, 244))
+    traced_model = torch.jit.trace(model, ex_input)
