@@ -1,15 +1,19 @@
 import glob
 import numpy as np
+import sys
 import torch
+
 from skimage import io, transform
 
 # Returns a list of all images in a directory with the provided extension.
-def fetch_images(directory: str, extension: str = "jpg"):
+def fetch_images(directory: str, extension: str = "jpg", maxsize: int = sys.maxsize):
     images = []
+    count = 0
     for filename in glob.iglob(directory + f"**/*.{extension}", recursive=True):
-        image = io.imread(filename)
-        image = to_three_channel(image)
-        images.append(image)
+        if count >= maxsize:
+            break
+        images.append(to_three_channel(io.imread(filename)))
+
     return images
 
 # Returns np.ndarray or torch.Tensor with three channels.
@@ -93,11 +97,11 @@ def divide_into_five(full_images):
 def divide_into_regions(image, *relative_coord_list):
     regions = []
     w, h = image.shape[:2]
-    for relative_coords in relative_coord_list:
-        w1 = int(w * relative_coords[0])
-        w2 = int(w * relative_coords[1])
-        h1 = int(h * relative_coords[2])
-        h2 = int(h * relative_coords[3])
+    for relative_coord in relative_coord_list:
+        w1 = int(w * relative_coord[0])
+        w2 = int(w * relative_coord[1])
+        h1 = int(h * relative_coord[2])
+        h2 = int(h * relative_coord[3])
         regions.append(image[w1:w2, h1:h2])
     return regions
 

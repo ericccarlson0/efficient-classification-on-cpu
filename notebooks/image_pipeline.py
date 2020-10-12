@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as tf
 
 from models.util.visualization import show_images, check_classification
-from models.networks.shufflenet_custom import shufflenet_custom_small
+from models.networks.shufflenet_custom import shufflenet_small
 from models.util.dataset import StandardDataset
 from models.util.accuracy import generate_misclassified
 
@@ -29,19 +29,22 @@ print("Imported packages.")
 # %% Set up directories.
 
 # The directory that is beneath all the rest. Optional.
-BASE_DIR = None
+BASE_DIR = os.sep + os.path.join("Users", "ericcarlson", "Desktop")
 
-# Where this project is stored. Optional.
-LOCAL_DIR = None
+# Where this project is stored.
+LOCAL_DIR = os.path.join(BASE_DIR, "efficient-classification-on-cpu")
 
 # Where all the images are stored as torch Tensors.
-TENSORS_DIR = None
+TENSORS_DIR = os.path.join(BASE_DIR, "Datasets", "torch_data")
 
-# The csv that contains mappings from id to label.
-CSV_DIR = None
+# The csv that contains mappings from ID to label.
+CSV_DIR = os.path.join(BASE_DIR, "Datasets", "csv", "ITD.csv")
 
 # Where to save data associated with training.
-TB_LOGDIR = None
+TB_LOGDIR = os.path.join(LOCAL_DIR, "tensorboard")
+
+# Where to save trained models.
+SAVED_MODEL_DIR = os.path.join(LOCAL_DIR, "trained")
 
 # TODO: Turn this into an actual, comprehensive error.
 if not BASE_DIR:
@@ -49,7 +52,7 @@ if not BASE_DIR:
 
 print("Set up directories.")
 
-# %% Retrieve image ids and tensors.
+# %% Retrieve image IDs and tensors.
 
 image_ids = []
 label_mappings = {}
@@ -62,9 +65,9 @@ for i in range(len(csv_dataset)):
     image_ids.append(image_id)
     label_mappings[image_id] = label
 
-print("Retrieved image ids and tensors.")
+print("Retrieved image IDs and tensors.")
 
-# %% Divide image ids into Train, Val, Test sets.
+# %% Divide image IDs into Train, Val, Test sets.
 
 train_ids, val_ids = train_test_split(image_ids, test_size=.20)
 val_ids, test_ids = train_test_split(val_ids, test_size=.50)
@@ -90,7 +93,7 @@ prune_mod = sys.maxsize
 batch_size = 32
 num_workers = 2
 num_classes = 2
-num_epochs = 32
+num_epochs = 16
 finetune_depth = 6
 
 print("Set up training parameters.")
@@ -147,14 +150,14 @@ hparams = {"MODEL_TYPE": model_type, "LEARNING_RATE": lr, "DROPOUT_PROB": dropou
 
 # %% Create model. Optionally load model.
 
-model = shufflenet_custom_small()
+model = shufflenet_small()
 
 if load_model_dir:
     model.load_state_dict(torch.load(load_model_dir))
 
 print("Created model.")
 
-# %% Set up loss criterion, optimizer, lr scheduler.
+# %% Set up loss criterion, optimizer, LR scheduler.
 
 criterion = nn.CrossEntropyLoss()
 # Can add betas and/or AMSGrad later...
@@ -191,7 +194,7 @@ for epoch in range(train_model * num_epochs):
     # lr_scheduler.step(epoch=epoch)
 
     _, fn_list = generate_misclassified(model=model, image_ids=val_ids, label_mappings=label_mappings,
-                                        dataset_dir="TENSORS_DIR", num_classes=num_classes)
+                                        dataset_dir=TENSORS_DIR, num_classes=num_classes)
     val_accuracy = sum(fn_list) / len(val_ids)
     print(f"Validation accuracy: {val_accuracy: .4f}")
 
@@ -204,14 +207,14 @@ print("Model has been created.")
 
 # %% Save model to appropriate directory (optional).
 
+# TODO: There could be pruning or something like that before we save the model.
+# That would need to be dealt with...
 if save_model:
-    state_dict_name = f"{model_type}_time={float(time.time()): .2f}.pt"
-    state_dict_path = os.path.join(LOCAL_DIR, "saved_models", state_dict_name)
+    state_dict_path = os.path.join(SAVED_MODEL_DIR,
+                                   f"{model_type}_time={float(time.time()): .2f}.pt")
 
-    # TODO: There could be pruning or something like that before we save the model.
-    # That would nee to be dealt with...
     torch.save(model.state_dict(), state_dict_path)
-    print(f"Saved model to {state_dict_path}")
+    print(f"Saved model to {state_dict_path}.")
 
 # %% Record results as hparams (optional).
 
@@ -228,9 +231,9 @@ writer.close()
 
 # %% Trace the model (optional).
 
-# TODO: Finish this. And traced model on a fixed input is almost certainly not enough.
 trace_model = False
 
+# TODO: Finish this. And traced model on a fixed input is almost certainly not enough.
 if trace_model:
     ex_input = torch.rand((2, 3, 244, 244))
     traced_model = torch.jit.trace(model, ex_input)

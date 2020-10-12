@@ -112,5 +112,5 @@ class ShuffleNetCustom(nn.Module):
         x = self.fc(x)
         return x
 
-def shufflenet_custom_small(**kwargs):
+def shufflenet_small(**kwargs):
     return ShuffleNetCustom([2, 4, 4], [24, 48, 96, 192, 1024], **kwargs)
