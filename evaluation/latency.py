@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 
 BASE_DIR = os.sep + os.path.join("Users", "ericcarlson", "Desktop")
 HR_DIR = os.path.join(BASE_DIR, "Datasets", "HighRes")
-LR_DIR = os.path.join(BASE_DIR, "Datasets", "ITD", "Bad")
+LR_DIR = os.path.join(BASE_DIR, "Datasets", "MSCOCO_2014")
 MODEL_NAME = "EMPTY1.pt"
 STATE_DICT_PATH = os.path.join(BASE_DIR, "efficient-classification-on-cpu", "trained", MODEL_NAME)
 
@@ -35,6 +35,8 @@ print("Created and loaded model.")
 
 # %% Define functions to evaluate latency.
 
+num_images = 8
+
 def test_latency(module: torch.nn.Module, tensor: torch.Tensor):
     if len(tensor.shape) == 3:
         tensor = tensor.unsqueeze(0)
@@ -47,14 +49,14 @@ def plot(sizes: list, latencies: list):
     plt.xlabel("PIXELS")
 
     for size, latency in zip(sizes, latencies):
-        plt.plot(size, latency, "bo")
+        plt.plot(size, latency, "ko")
     plt.show()
 
 print("Defined functions to evaluate latency.")
 
 # %% Evaluate High-Resolution latencies. Plot.
 
-hr_images = fetch_images(HR_DIR, extension="jpg")
+hr_images = fetch_images(HR_DIR, extension="jpg", maxsize=num_images)
 hr_latencies = [
     test_latency(model, torch.from_numpy(image.transpose((2, 0, 1))))
     for image in hr_images
@@ -77,7 +79,7 @@ print("Plotted data for High-Resolution images.")
 
 # %% Evaluate Low-Resolution latencies. Plot.
 
-lr_images = fetch_images(LR_DIR, extension="png")
+lr_images = fetch_images(LR_DIR, extension="jpg", maxsize=num_images)
 lr_latencies = [
     test_latency(model, torch.from_numpy(image.transpose((2, 0, 1))))
     for image in lr_images
