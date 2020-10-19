@@ -1,5 +1,5 @@
 # %% Import packages.
-import configparser
+
 import os
 import sys
 import time
@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as tf
 
 from models.util.visualization import show_images, check_classification
-from models.networks.shufflenet_custom import shufflenet_small
+from models.networks import mobilenet_custom, shufflenet_custom
 from models.util.dataset import StandardDataset
 from models.util.accuracy import generate_misclassified
 
@@ -140,17 +140,27 @@ load_model_dir = None
 pretrain = True
 train_model = True
 save_model = False
-add_hparams = False
 
 # This is used for recording results and saving the model.
-model_type = "ShuffleNet_Custom_DocumentClass"
+model_type = "MobileNet"
+task_name = "Document_Classification"
+model_name = f"{model_type}_{task_name}"
 
 writer = SummaryWriter(TB_LOGDIR)
-hparams = {"MODEL_TYPE": model_type, "LEARNING_RATE": lr, "DROPOUT_PROB": dropout_prob}
+hparams = {"MODEL_TYPE": model_name, "LEARNING_RATE": lr, "DROPOUT_PROB": dropout_prob}
 
 # %% Create model. Optionally load model.
 
-model = shufflenet_small()
+if model_type == "MobileNet":
+    MOBILENET_DIR = os.path.join(BASE_DIR, "efficient-classification-on-cpu", "models", "networks",
+                                 "mobilenetv3_small.pth.tar")
+    model = mobilenet_custom.mobilenet_small(pretrained=True, net_dir=MOBILENET_DIR)
+    mobilenet_custom.prepare_for_finetune(model, depth=finetune_depth)
+
+# Default to ShuffleNet.
+else:
+    model = shufflenet_custom.shufflenet_small()
+    shufflenet_custom.prepare_for_finetune(model, depth=finetune_depth)
 
 if load_model_dir:
     model.load_state_dict(torch.load(load_model_dir))
@@ -211,7 +221,7 @@ print("Model has been created.")
 # That would need to be dealt with...
 if save_model:
     state_dict_path = os.path.join(SAVED_MODEL_DIR,
-                                   f"{model_type}_time={float(time.time()): .2f}.pt")
+                                   f"{model_name}_time={float(time.time()): .2f}.pt")
 
     torch.save(model.state_dict(), state_dict_path)
     print(f"Saved model to {state_dict_path}.")
@@ -223,9 +233,9 @@ val_acc = 0
 test_acc = 0
 total_acc = 0
 
-if add_hparams:
-    metrics = {"hparam/val_accuracy": val_acc, "hparam/test_accuracy": test_acc, "hparam/total_accuracy": total_acc}
-    writer.add_hparams(hparam_dict=hparams, metric_dict=metrics)
+
+metrics = {"hparam/val_accuracy": val_acc, "hparam/test_accuracy": test_acc, "hparam/total_accuracy": total_acc}
+writer.add_hparams(hparam_dict=hparams, metric_dict=metrics)
 
 writer.close()
 
