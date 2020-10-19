@@ -13,6 +13,7 @@ def fetch_images(directory: str, extension: str = "jpg", maxsize: int = sys.maxs
         if count >= maxsize:
             break
         images.append(to_three_channel(io.imread(filename)))
+        count += 1
 
     return images
 
