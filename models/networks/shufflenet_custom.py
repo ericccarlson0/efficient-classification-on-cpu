@@ -112,5 +112,18 @@ class ShuffleNetCustom(nn.Module):
         x = self.fc(x)
         return x
 
-def shufflenet_small(**kwargs):
-    return ShuffleNetCustom([2, 4, 4], [24, 48, 96, 192, 1024], **kwargs)
+def shufflenet_small(num_classes: int = 2):
+    return ShuffleNetCustom([2, 4, 4], [24, 48, 96, 192, 1024], num_classes=num_classes)
+
+def prepare_for_finetune(net: ShuffleNetCustom, depth: int = 0):
+    for param in net.parameters():
+        param.requires_grad = False
+
+    modules = [net.fc, net.conv5, net.stage4, net.stage3, net.stage2, net.conv1]
+    for i, module in enumerate(modules, 1):
+        if depth < i:
+            break
+        for param in module:
+            param.requires_grad = True
+
+    return net
