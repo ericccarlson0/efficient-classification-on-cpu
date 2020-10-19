@@ -14,17 +14,19 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as tf
 
+import models.networks.shufflenet_custom as shuffle
+import models.networks.mobilenet_custom as mobile
 from models.util.visualization import show_images, check_classification
-from models.networks import mobilenet_custom, shufflenet_custom
 from models.util.dataset import StandardDataset
 from models.util.accuracy import generate_misclassified
+from models.util.train import train
 
 from sklearn.model_selection import train_test_split
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 warnings.filterwarnings("ignore")
 
-print("Imported packages.")
+print("Imported packages...")
 
 # %% Set up directories.
 
@@ -50,7 +52,7 @@ SAVED_MODEL_DIR = os.path.join(LOCAL_DIR, "trained")
 if not BASE_DIR:
     raise NotADirectoryError("Directories need to be set up.")
 
-print("Set up directories.")
+print("Set up directories...")
 
 # %% Retrieve image IDs and tensors.
 
@@ -65,27 +67,29 @@ for i in range(len(csv_dataset)):
     image_ids.append(image_id)
     label_mappings[image_id] = label
 
-print("Retrieved image IDs and tensors.")
+print("Retrieved IDs and labels...")
 
 # %% Divide image IDs into Train, Val, Test sets.
 
-train_ids, val_ids = train_test_split(image_ids, test_size=.20)
+train_ids, val_ids = train_test_split(image_ids, test_size=.10)
 val_ids, test_ids = train_test_split(val_ids, test_size=.50)
 
-print(f"Train, Val, Test: {len(train_ids)}, {len(val_ids)}, {len(test_ids)}")
+print("Divided the data...")
+print(f"Data: {len(train_ids)}, {len(val_ids)}, {len(test_ids)}")
 
 # %% Check original images.
 
-show_image_num = 36
-start_dex = np.random.randint(0, len(train_ids) - show_image_num)
-show_images(train_ids, torch_data_dir=TENSORS_DIR, start_dex=start_dex, ndisplay=show_image_num)
+# TODO: Use permutations and torchvision.make_grid instead of this.
+# show_image_num = 36
+# start_dex = np.random.randint(0, len(train_ids) - show_image_num)
+# show_images(train_ids, torch_data_dir=TENSORS_DIR, start_dex=start_dex, ndisplay=show_image_num)
 
-print("Checked original images.")
+print("Checked some images...")
 
 # %% Set up training parameters.
 
 lr = 1e-4
-# lr_decay = 0.95
+lr_decay = 0.95
 dropout_prob = 0.50
 prune_prob = 0.10
 prune_mod = sys.maxsize
@@ -94,87 +98,51 @@ batch_size = 32
 num_workers = 2
 num_classes = 2
 num_epochs = 16
-finetune_depth = 6
+finetune_depth = 2
 
-print("Set up training parameters.")
+print("Set up training parameters...")
 
-# %% Define training.
+# %% Determine how to LOAD, TRAIN, and RECORD results.
 
-def train_epoch(max_batches: int = sys.maxsize):
-    losses = 0
-    count = 0
-
-    for loaded_tensor, loaded_label in loader:
-        if count >= max_batches:
-            break
-
-        optimizer.zero_grad()
-        output = model(loaded_tensor)
-        loss = criterion(output, loaded_label.long())
-        losses += loss.item()
-
-        loss.backward()
-        optimizer.step()
-
-        count += 1
-        if (count % 32) == 0:
-            print(f"{count} batches...")
-
-    print(f"Aggregate loss over {count} batches: {losses: .3f}")
-
-print("Defined training.")
-
-# %% Define pruning.
-
-def prune_model():
-    if prune_mod < num_epochs and (epoch % prune_mod) == 0:
-        # TODO: Fill with real code.
-        pass
-
-print("Defined pruning.")
-
-# %% Determine how to LOAD, TRAIN, and/or RECORD results.
-
-# This would be a string to represent a directory to load parameters.
-load_model_dir = None
+# This would be the directory of a state dictionary.
+state_dict_dir = None
 pretrain = True
 train_model = True
 save_model = False
 
-# This is used for recording results and saving the model.
 model_type = "MobileNet"
 task_name = "Document_Classification"
+# This is used for recording results and saving the model.
 model_name = f"{model_type}_{task_name}"
 
 writer = SummaryWriter(TB_LOGDIR)
-hparams = {"MODEL_TYPE": model_name, "LEARNING_RATE": lr, "DROPOUT_PROB": dropout_prob}
+hparams = {"MODEL_NAME": model_name, "LEARNING_RATE": lr, "DROPOUT_PROB": dropout_prob}
 
 # %% Create model. Optionally load model.
 
 if model_type == "MobileNet":
-    MOBILENET_DIR = os.path.join(BASE_DIR, "efficient-classification-on-cpu", "models", "networks",
-                                 "mobilenetv3_small.pth.tar")
-    model = mobilenet_custom.mobilenet_small(pretrained=True, net_dir=MOBILENET_DIR)
-    mobilenet_custom.prepare_for_finetune(model, depth=finetune_depth)
+    MOBILENET_DIR = os.path.join(LOCAL_DIR, "models", "networks", "mobilenetv3_small.pth.tar")
+    model = mobile.mobilenet_small(pretrained=True, net_dir=MOBILENET_DIR)
+    mobile.prepare_for_finetune(model, depth=finetune_depth)
 
 # Default to ShuffleNet.
 else:
-    model = shufflenet_custom.shufflenet_small()
-    shufflenet_custom.prepare_for_finetune(model, depth=finetune_depth)
+    model = shuffle.shufflenet_small()
+    shuffle.prepare_for_finetune(model, depth=finetune_depth)
 
-if load_model_dir:
-    model.load_state_dict(torch.load(load_model_dir))
+if state_dict_dir:
+    model.load_state_dict(torch.load(state_dict_dir))
 
-print("Created model.")
+print("Created model...")
 
 # %% Set up loss criterion, optimizer, LR scheduler.
 
 criterion = nn.CrossEntropyLoss()
 # Can add betas and/or AMSGrad later...
 optimizer = optim.Adam(params=model.parameters(), lr=lr)
-# lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=lr_decay)
+lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer=optimizer, gamma=lr_decay)
 
-print("Set up loss criterion, optimizer, lr scheduler.")
+print("Set up loss criterion, optimizer, LR scheduler...")
 
 # %% Set up preprocessing, Dataset, DataLoader
 
@@ -183,50 +151,50 @@ normalize = tf.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 # Preprocessing does not include cropping or resizing. The choice is made, here, that this should be done before saving
 # the tensors, in order to train as efficiently as possible.
-preprocess = tf.Compose([
-    normalize
-])
+preprocess = None
 
-torch_dataset = StandardDataset(train_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR)
-loader = DataLoader(torch_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+datasets = {
+    'train': StandardDataset(train_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR),
+    'val': StandardDataset(train_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR)
+}
+dataloaders = {
+    x: DataLoader(datasets[x], batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    for x in ['train', 'val']
+}
+dataset_sizes = {
+    x: len(datasets[x])
+    for x in ['train', 'val']
+}
 
-print("Set up preprocessing, Dataset, DataLoader.")
+print("Set up preprocessing, Dataset, DataLoader...")
 
-# %% TRAIN MODEL.
+# %% TRAIN model.
 
-print("\nSTARTING EPOCHS")
+print("Starting training...")
 
-for epoch in range(train_model * num_epochs):
-    print(f"\nEPOCH {epoch}:")
+if train_model:
+    train(model=model,
+          criterion=criterion,
+          optimizer=optimizer,
+          scheduler=lr_scheduler,
+          loaders=dataloaders,
+          sizes=dataset_sizes,
+          writer=writer,
+          num_epochs=num_epochs)
 
-    train_epoch()
-    # prune_model()
-    # lr_scheduler.step(epoch=epoch)
-
-    _, fn_list = generate_misclassified(model=model, image_ids=val_ids, label_mappings=label_mappings,
-                                        dataset_dir=TENSORS_DIR, num_classes=num_classes)
-    val_accuracy = sum(fn_list) / len(val_ids)
-    print(f"Validation accuracy: {val_accuracy: .4f}")
-
-    for j in range(8):
-        curr_id = val_ids[j]
-        curr_label = label_mappings[curr_id]
-        check_classification(model, image_id=curr_id, torch_data_dir=TENSORS_DIR)
-
-print("Model has been created.")
+print("Model has been created!")
 
 # %% Save model to appropriate directory (optional).
 
-# TODO: There could be pruning or something like that before we save the model.
-# That would need to be dealt with...
+# TODO: There could be pruning or something before we save the model, which would need to be dealt with.
 if save_model:
     state_dict_path = os.path.join(SAVED_MODEL_DIR,
-                                   f"{model_name}_time={float(time.time()): .2f}.pt")
+                                   f"{model_name}_t{float(time.time()): .3f}.pt")
 
     torch.save(model.state_dict(), state_dict_path)
     print(f"Saved model to {state_dict_path}.")
 
-# %% Record results as hparams (optional).
+# %% Record results as hparams.
 
 # TODO: Generate accuracy on Val and Test sets when training is over.
 val_acc = 0
