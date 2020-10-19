@@ -4,21 +4,23 @@ import os
 import sys
 import time
 import torch
-import torch.nn as nn
-import torch.optim as optim
+import torchvision
 import warnings
+
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import torch.nn as nn
+import torch.optim as optim
+import torchvision.transforms as tf
 
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import torchvision.transforms as tf
 
 import models.networks.shufflenet_custom as shuffle
 import models.networks.mobilenet_custom as mobile
-from models.util.visualization import show_images, check_classification
+from models.util.visualization import show_tensor
 from models.util.dataset import StandardDataset
-from models.util.accuracy import generate_misclassified
 from models.util.train import train
 
 from sklearn.model_selection import train_test_split
@@ -76,15 +78,6 @@ val_ids, test_ids = train_test_split(val_ids, test_size=.50)
 
 print("Divided the data...")
 print(f"Data: {len(train_ids)}, {len(val_ids)}, {len(test_ids)}")
-
-# %% Check original images.
-
-# TODO: Use permutations and torchvision.make_grid instead of this.
-# show_image_num = 36
-# start_dex = np.random.randint(0, len(train_ids) - show_image_num)
-# show_images(train_ids, torch_data_dir=TENSORS_DIR, start_dex=start_dex, ndisplay=show_image_num)
-
-print("Checked some images...")
 
 # %% Set up training parameters.
 
@@ -167,6 +160,18 @@ dataset_sizes = {
 }
 
 print("Set up preprocessing, Dataset, DataLoader...")
+
+# %% Check images from DataLoader.
+
+inputs, labels = next(dataloaders['train'])
+grid = torchvision.utils.make_grid(inputs,
+                                   nrow=int(np.sqrt(batch_size)))
+
+fig, ax = plt.subplots(1, figsize=(10, 10))
+show_tensor(grid, ax=ax)
+plt.show()
+
+print("Checked loaded images...")
 
 # %% TRAIN model.
 

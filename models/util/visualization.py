@@ -1,6 +1,8 @@
-import matplotlib.pyplot as plt
 import os
 import torch
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 def retrieve_torch_img(img_id: str, torch_data_dir: str):
     img_path = os.path.join(torch_data_dir, img_id + ".pt")
@@ -47,3 +49,16 @@ def check_classification(model: torch.nn.Module, image_id: str, torch_data_dir: 
     plt.axis("off")
     plt.xlabel(text)
     plt.show()
+
+def show_tensor(image: torch.Tensor, title=None, ax=None, figsize=(5,5)):
+    image = image.numpy().transpose((1, 2, 0))
+    # image = np.clip(image, 0, 1)
+
+    if ax is None:
+        fig, ax = plt.subplots(1, figsize=figsize)
+    ax.imshow(image)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if title is not None:
+        ax.set_title(title)
+
