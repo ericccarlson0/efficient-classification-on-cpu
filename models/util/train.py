@@ -54,7 +54,7 @@ def train(model: torch.nn.Module, criterion, optimizer, scheduler, loaders, size
 
                 batch_count += 1
                 if batch_count % log_freq == 0:
-                    print(f"{batch_count} batches with {losses: .4f} losses...")
+                    print(f"{batch_count} batches with {losses: .2f} losses...")
                     writer.add_scalar("TRAINING LOSS",
                                       losses / log_freq,
                                       epoch * sizes[phase] + batch_count)
@@ -69,14 +69,14 @@ def train(model: torch.nn.Module, criterion, optimizer, scheduler, loaders, size
             losses = losses / sizes[phase]
             accuracy = corrects / sizes[phase]
 
-            print(f"{phase.capitalize()} phase:\n")
-            print(f"LOSS: {losses: .4f}, ACCURACY: {accuracy * 100: .2f}")
+            print(f"\n{phase.capitalize()} phase:")
+            print(f"LOSS: {losses: .2f}, ACCURACY: {accuracy * 100: .2f}\n")
 
         print("...")
 
     duration = time.time() - start
     print(f"{num_epochs} epochs were completed in...")
-    print(f"{duration // 3600: .0f}H, {duration // 60: .0f}M, {duration % 60: .of}s ")
+    print(f"{duration // 3600: .0f}H, {duration // 60: .0f}M, {duration % 60: .0f}s ")
 
     return model
 

@@ -87,7 +87,7 @@ dropout_prob = 0.50
 prune_prob = 0.10
 prune_mod = sys.maxsize
 
-batch_size = 32
+batch_size = 16
 num_workers = 2
 num_classes = 2
 num_epochs = 16
@@ -148,7 +148,7 @@ preprocess = None
 
 datasets = {
     'train': StandardDataset(train_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR),
-    'val': StandardDataset(train_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR)
+    'val': StandardDataset(val_ids, label_mappings, tsfm=preprocess, dataset_dir=TENSORS_DIR)
 }
 dataloaders = {
     x: DataLoader(datasets[x], batch_size=batch_size, shuffle=True, num_workers=num_workers)
@@ -163,7 +163,7 @@ print("Set up preprocessing, Dataset, DataLoader...")
 
 # %% Check images from DataLoader.
 
-inputs, labels = next(dataloaders['train'])
+inputs, labels = next(iter(dataloaders['train']))
 grid = torchvision.utils.make_grid(inputs,
                                    nrow=int(np.sqrt(batch_size)))
 
