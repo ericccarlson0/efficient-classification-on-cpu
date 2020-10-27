@@ -87,7 +87,7 @@ dropout_prob = 0.50
 prune_prob = 0.10
 prune_mod = sys.maxsize
 
-batch_size = 16
+batch_size = 128
 num_workers = 2
 num_classes = 2
 num_epochs = 16

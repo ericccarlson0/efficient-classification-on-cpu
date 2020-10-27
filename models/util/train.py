@@ -2,10 +2,16 @@ import time
 import torch
 import sys
 
+# This is set here to avoid having to pass around too much.
+log_freq = 64
+
+def write_loss(writer, losses: float, batch: int, iteration: int, prefix: str = "train"):
+    print(f"Batch {batch} had a loss of {losses: .2f}")
+    writer.add_scalar(f"{prefix.capitalize()} loss", losses / log_freq, iteration)
+
+
 def train(model: torch.nn.Module, criterion, optimizer, scheduler, loaders, sizes, writer,
-          num_epochs: int = 16,
-          log_freq: int = 32,
-          device: str = 'cpu'):
+          num_epochs: int = 16, device: str = 'cpu'):
     """
     A standard helper method for training a CNN.
     :param log_freq:    the number of batches before logging is triggered
@@ -54,10 +60,8 @@ def train(model: torch.nn.Module, criterion, optimizer, scheduler, loaders, size
 
                 batch_count += 1
                 if batch_count % log_freq == 0:
-                    print(f"{batch_count} batches with {losses: .2f} losses...")
-                    writer.add_scalar("TRAINING LOSS",
-                                      losses / log_freq,
-                                      epoch * sizes[phase] + batch_count)
+                    iteration = epoch * len(loaders[phase]) + batch_count
+                    write_loss(writer, losses, batch_count, iteration, phase)
                     losses = 0
 
                 losses += loss.item() * inputs.size(0)
@@ -82,9 +86,7 @@ def train(model: torch.nn.Module, criterion, optimizer, scheduler, loaders, size
 
 
 def train_epoch(model: torch.nn.Module, criterion, optimizer, loader, writer,
-                max_batches: int = sys.maxsize,
-                log_freq: int = 32,
-                epoch: int = 0):
+                max_batches: int = sys.maxsize, epoch: int = 0):
 
     model.train()
     count = 0
@@ -104,6 +106,5 @@ def train_epoch(model: torch.nn.Module, criterion, optimizer, loader, writer,
         losses += loss.item()
 
         if count % log_freq == 0:
-            print(f"{count} batches with {losses} losses...")
-            writer.add_scalar("TRAINING LOSS", losses / log_freq, epoch * len(loader) + count)
+            write_loss(writer=writer, losses=losses, batch=count, iteration=epoch * len(loader) + count)
             losses = 0
